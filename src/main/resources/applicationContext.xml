@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-3.0.xsd">
+
+
+	<context:load-time-weaver
+		weaver-class="org.springframework.instrument.classloading.InstrumentationLoadTimeWeaver" />
+
+	<tx:annotation-driven transaction-manager="txManager" />
+
+	<bean id="xadiskResourceAdapter"
+		class="org.springframework.jca.support.ResourceAdapterFactoryBean">
+		<property name="resourceAdapter">
+			<bean class="org.xadisk.connector.XADiskResourceAdapter">
+				<property name="xaDiskHome" value="target/xadiskHome" />
+				<property name="instanceId" value="instance" />
+			</bean>
+		</property>
+		<property name="bootstrapContext" ref="simpleBoostrapContext" />
+	</bean>
+
+	<bean id="simpleBoostrapContext" class="org.springframework.jca.support.SimpleBootstrapContext">
+		<constructor-arg>
+			<bean class="org.xadisk.filesystem.standalone.StandaloneWorkManager">
+				<constructor-arg value="10" />
+				<constructor-arg value="60" />
+				<constructor-arg value="999999" />
+			</bean>
+		</constructor-arg>
+	</bean>
+
+	<bean id="managedConnectionFactory"
+		class="org.xadisk.connector.outbound.XADiskManagedConnectionFactory">
+		<property name="instanceId" value="instance" />
+	</bean>
+
+	<bean id="connectionManager" class="org.jencks.factory.ConnectionManagerFactoryBean">
+		<property name="transactionManager" ref="geronimoTransactionManager" />
+	</bean>
+
+	<bean id="connectionFactory"
+		class="org.springframework.jca.support.LocalConnectionFactoryBean">
+		<property name="connectionManager" ref="connectionManager" />
+		<property name="managedConnectionFactory" ref="managedConnectionFactory" />
+	</bean>
+
+	<bean id="geronimoTransactionManager" class="org.jencks.factory.TransactionManagerFactoryBean" />
+
+	<bean id="txManager"
+		class="org.springframework.transaction.jta.JtaTransactionManager">
+		<property name="transactionManager" ref="geronimoTransactionManager" />
+		<property name="userTransaction" ref="geronimoTransactionManager" />
+	</bean>
+
+	<bean id="emf"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+
+	<jdbc:embedded-database id="dataSource" type="DERBY" />
+	<jdbc:initialize-database data-source="dataSource">
+		<jdbc:script location="classpath:createSchema.sql" />
+	</jdbc:initialize-database>
+
+	<bean id="test" class="files.xadisk.jencks.BeanFileXADisk">
+		<property name="factory" ref="connectionFactory" />
+	</bean>
+
+</beans>
